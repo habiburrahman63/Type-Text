@@ -79,9 +79,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, setActiveView, onOpe
           {/* Sound Toggle */}
           <button
             onClick={toggleSound}
-            className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title={soundEnabled ? 'Mute Sounds' : 'Enable Sounds'}
-            aria-label="Toggle audio effects"
+            className={`p-2 rounded-xl transition-colors ${
+              soundEnabled
+                ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-400 dark:hover:bg-indigo-900/60'
+                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-800'
+            }`}
+            title={soundEnabled ? 'Mechanical Typing Sound: On (Click to Mute)' : 'Mechanical Typing Sound: Muted (Click to Enable)'}
+            aria-label="Toggle mechanical keyboard sound"
           >
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>

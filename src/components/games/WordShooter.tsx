@@ -90,13 +90,24 @@ export const WordShooter: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     };
   }, [gameState]);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab'].includes(e.key)) return;
+    if (e.key === 'Backspace') {
+      soundController.playKeyClick('backspace');
+    } else if (e.key === ' ') {
+      soundController.playKeyClick('space');
+    } else if (e.key.length === 1) {
+      soundController.playKeyClick('key');
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.trim().toLowerCase();
     setCurrentInput(e.target.value);
 
     const hitIdx = targets.findIndex(t => t.word === val);
     if (hitIdx !== -1) {
-      soundController.playKeyClick();
+      soundController.playSuccess();
       const hit = targets[hitIdx];
       setTargets(prev => prev.filter(t => t.id !== hit.id));
       setCurrentInput('');
@@ -242,9 +253,10 @@ export const WordShooter: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             ref={inputRef}
             type="text"
             value={currentInput}
+            onKeyDown={handleKeyDown}
             onChange={handleInputChange}
             placeholder="Type target keywords to fire..."
-            className="flex-1 text-lg sm:text-xl font-mono tracking-tight px-4 py-3 rounded-xl border-2 border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 dark:bg-slate-800 dark:text-white"
+            className="flex-1 text-lg sm:text-xl font-mono tracking-[0.14em] px-4 py-3 rounded-xl border-2 border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 dark:bg-slate-800 dark:text-white"
             autoFocus
           />
         </div>

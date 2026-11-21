@@ -1,5 +1,5 @@
 import { useApp } from '../context/AppContext.tsx';
-import { soundController } from '../utils/audio.ts';
+import { soundController, KeySoundType, SwitchProfile } from '../utils/audio.ts';
 
 export function useSound() {
   const { soundEnabled, toggleSound } = useApp();
@@ -7,8 +7,12 @@ export function useSound() {
   return {
     soundEnabled,
     toggleSound,
-    click: () => {
-      if (soundEnabled) soundController.playKeyClick();
+    volume: soundController.volume,
+    setVolume: (v: number) => soundController.setVolume(v),
+    profile: soundController.switchProfile,
+    setProfile: (p: SwitchProfile) => soundController.setProfile(p),
+    click: (type: KeySoundType = 'key') => {
+      if (soundEnabled) soundController.playKeyClick(type);
     },
     error: () => {
       if (soundEnabled) soundController.playError();

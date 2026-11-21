@@ -27,15 +27,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onTakeTest,
   onExploreGames
 }) => {
-  const [demoInput, setDemoInput] = useState<string>('');
-  const demoTarget = 'The quick brown fox jumps over the lazy dog.';
   const [faqOpen, setFaqOpen] = useState<number | null>(0);
   const [newsletterEmail, setNewsletterEmail] = useState<string>('');
   const [newsletterSuccess, setNewsletterSuccess] = useState<boolean>(false);
-
-  const handleDemoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDemoInput(e.target.value);
-  };
 
   const handleNewsletter = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,33 +120,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Interactive Hero Workspace & Live Typing Sandbox */}
-          <div className="lg:col-span-5 flex flex-col gap-4">
-            <div className="relative rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl bg-slate-950 aspect-[16/10]">
+          {/* Right Column: Hero Image (Clean, No Overlay) */}
+          <div className="lg:col-span-5 flex flex-col justify-center">
+            <div className="relative rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl aspect-[16/10] bg-slate-100 dark:bg-slate-900 group">
               <img
                 src="/src/assets/images/hero_typing_workspace_1793985549679.jpg"
                 alt="Typing Workspace Environment"
                 referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent" />
-              
-              <div className="absolute bottom-4 left-4 right-4 bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-700/80 text-white">
-                <div className="flex items-center justify-between text-xs text-indigo-300 font-medium mb-1 tracking-tight">
-                  <span>Interactive Live Preview</span>
-                  <span className="font-mono font-bold text-emerald-400 tabular-nums">98% Accuracy</span>
-                </div>
-                <div className="text-xs font-mono text-slate-300 truncate leading-relaxed">
-                  {demoTarget}
-                </div>
-                <input
-                  type="text"
-                  value={demoInput}
-                  onChange={handleDemoChange}
-                  placeholder="Test typing this sentence right now..."
-                  className="w-full mt-2 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 leading-normal"
-                />
-              </div>
             </div>
           </div>
         </div>

@@ -100,13 +100,25 @@ export const TypingRacer: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }, [gameState]);
 
   // Handle typing input
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (gameState !== 'racing') return;
+    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab'].includes(e.key)) return;
+
+    if (e.key === 'Backspace') {
+      soundController.playKeyClick('backspace');
+    } else if (e.key === ' ') {
+      soundController.playKeyClick('space');
+    } else if (e.key.length === 1) {
+      soundController.playKeyClick('key');
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (gameState !== 'racing') return;
     const val = e.target.value.trim();
     const currentTarget = words[currentWordIdx];
 
     if (val === currentTarget) {
-      soundController.playKeyClick();
       const nextIdx = currentWordIdx + 1;
       setCurrentWordIdx(nextIdx);
       setInputValue('');
@@ -309,7 +321,7 @@ export const TypingRacer: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </div>
 
           {/* Current & Upcoming Words Strip */}
-          <div className="flex items-center gap-3 overflow-hidden py-2 text-lg sm:text-xl font-mono tracking-tight">
+          <div className="flex items-center gap-3 overflow-hidden py-2 text-lg sm:text-xl font-mono tracking-[0.14em]">
             {words.slice(currentWordIdx, currentWordIdx + 6).map((word, idx) => (
               <span
                 key={idx}
@@ -329,9 +341,10 @@ export const TypingRacer: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             ref={inputRef}
             type="text"
             value={inputValue}
+            onKeyDown={handleKeyDown}
             onChange={handleInputChange}
             placeholder={words[currentWordIdx] || 'Type here...'}
-            className="w-full text-lg sm:text-xl font-mono tracking-tight px-4 py-3 rounded-xl border-2 border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 dark:bg-slate-800 dark:text-white"
+            className="w-full text-lg sm:text-xl font-mono tracking-[0.14em] px-4 py-3 rounded-xl border-2 border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 dark:bg-slate-800 dark:text-white"
             autoFocus
           />
         </div>

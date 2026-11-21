@@ -316,6 +316,14 @@ export const CURRICULUM_LESSONS: Lesson[] = [
 
 export const TYPING_TEST_PASSAGES: TypingTestPassage[] = [
   {
+    id: 'test-vet',
+    title: 'Rescue Animal Music Project',
+    category: 'medium',
+    difficulty: 'Medium · Official Benchmark',
+    text: 'veterinarian thinks so. The vet has put music in over one thousand animal shelters and says it calms dogs and cats. Moreover, it even cuts down on barking. The vet started the nonprofit rescue animal project nearly four years ago. She asked artists around the world to donate dog and cat friendly music.',
+    authorOrSource: 'Rescue Animal Project'
+  },
+  {
     id: 'test-1',
     title: 'The Art of Touch Typing',
     category: 'easy',

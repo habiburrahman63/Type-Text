@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import { calculateTypingMetrics, TypingMetrics } from '../utils/typingEngine';
-import { soundController } from '../utils/audio';
+import { soundController, KeySoundType } from '../utils/audio';
+import { useApp } from '../context/AppContext';
 import { InteractiveKeyboard } from './InteractiveKeyboard';
-import { Play, Pause, RotateCcw, Volume2, VolumeX, CheckCircle2, Award, Zap, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Play, Pause, RotateCcw, Volume2, VolumeX, Award, ArrowRight } from 'lucide-react';
 
 interface TypingArenaProps {
   title: string;
@@ -16,6 +17,16 @@ interface TypingArenaProps {
   showKeyboard?: boolean;
 }
 
+interface StaticLineChar {
+  char: string;
+  globalIndex: number;
+}
+
+interface StaticLine {
+  lineIndex: number;
+  chars: StaticLineChar[];
+}
+
 export const TypingArena: React.FC<TypingArenaProps> = ({
   title,
   categoryOrUnit,
@@ -26,12 +37,12 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
   onNext,
   showKeyboard = true
 }) => {
+  const { soundEnabled, toggleSound } = useApp();
   const [typedChars, setTypedChars] = useState<string[]>([]);
   const [isStarted, setIsStarted] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [isFinished, setIsFinished] = useState<boolean>(false);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
-  const [soundOn, setSoundOn] = useState<boolean>(soundController.enabled);
   const [finalMetrics, setFinalMetrics] = useState<TypingMetrics | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -46,7 +57,54 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
   const currentChar = targetText[currentIndex] || '';
   const isShiftNeeded = /[A-Z!@#$%^&*()_+{}:"<>?~]/.test(currentChar);
 
-  // Focus input automatically
+  // Pre-split passage into fixed static rows so no words or letters ever break and jump down while typing
+  const staticLines = useMemo(() => {
+    const lines: StaticLine[] = [];
+    let currentLineChars: StaticLineChar[] = [];
+    let currentWordChars: StaticLineChar[] = [];
+    const maxLineLength = 41;
+
+    for (let i = 0; i < targetText.length; i++) {
+      const ch = targetText[i];
+
+      if (ch === '\n') {
+        currentLineChars.push(...currentWordChars);
+        currentWordChars = [];
+        lines.push({ lineIndex: lines.length, chars: currentLineChars });
+        currentLineChars = [];
+        continue;
+      }
+
+      currentWordChars.push({ char: ch, globalIndex: i });
+
+      if (ch === ' ') {
+        if (currentLineChars.length + currentWordChars.length > maxLineLength && currentLineChars.length > 0) {
+          lines.push({ lineIndex: lines.length, chars: currentLineChars });
+          currentLineChars = [...currentWordChars];
+          currentWordChars = [];
+        } else {
+          currentLineChars.push(...currentWordChars);
+          currentWordChars = [];
+        }
+      }
+    }
+
+    if (currentWordChars.length > 0) {
+      if (currentLineChars.length + currentWordChars.length > maxLineLength && currentLineChars.length > 0) {
+        lines.push({ lineIndex: lines.length, chars: currentLineChars });
+        lines.push({ lineIndex: lines.length, chars: currentWordChars });
+      } else {
+        currentLineChars.push(...currentWordChars);
+        lines.push({ lineIndex: lines.length, chars: currentLineChars });
+      }
+    } else if (currentLineChars.length > 0) {
+      lines.push({ lineIndex: lines.length, chars: currentLineChars });
+    }
+
+    return lines;
+  }, [targetText]);
+
+  // Focus hidden input automatically
   const focusInput = () => {
     if (inputRef.current) {
       inputRef.current.focus();
@@ -78,7 +136,7 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
     };
   }, [isStarted, isPaused, isFinished, isTimed, timeLimitSeconds]);
 
-  // Keep cursor scrolled into view
+  // Keep cursor scrolled into view smoothly
   useEffect(() => {
     if (activeCharSpanRef.current) {
       activeCharSpanRef.current.scrollIntoView({
@@ -113,8 +171,7 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
 
     setFinalMetrics(metrics);
     soundController.playSuccess();
-    
-    // Trigger festive celebratory confetti
+
     try {
       confetti({
         particleCount: 60,
@@ -149,7 +206,7 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
       e.preventDefault();
       if (typedChars.length > 0) {
         setTypedChars(prev => prev.slice(0, -1));
-        soundController.playKeyClick();
+        soundController.playKeyClick('backspace');
       }
       return;
     }
@@ -161,7 +218,8 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
       const isCorrect = e.key === expected;
 
       if (isCorrect) {
-        soundController.playKeyClick();
+        const soundType: KeySoundType = e.key === ' ' ? 'space' : e.key === '\n' ? 'enter' : 'key';
+        soundController.playKeyClick(soundType);
       } else {
         soundController.playError();
       }
@@ -180,15 +238,8 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
     focusInput();
   };
 
-  const toggleSound = () => {
-    const next = !soundOn;
-    setSoundOn(next);
-    soundController.enabled = next;
-  };
-
   // Live intermediate metrics
   const liveCorrect = typedChars.reduce((acc, ch, i) => acc + (ch === targetText[i] ? 1 : 0), 0);
-  const liveErrors = typedChars.length - liveCorrect;
   const liveAccuracy = typedChars.length > 0 ? Math.round((liveCorrect / typedChars.length) * 100) : 100;
   const liveMinutes = Math.max(elapsedSeconds, 1) / 60;
   const liveWpm = Math.round((typedChars.length / 5) / liveMinutes);
@@ -212,7 +263,7 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
       />
 
       {/* Top HUD: Title, Progress & Live Metrics */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 md:p-6 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 md:p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
             {categoryOrUnit && (
@@ -226,13 +277,28 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Typing Sound Effect Toggle Button */}
             <button
               onClick={toggleSound}
-              className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title={soundOn ? 'Mute Keystroke Sounds' : 'Unmute Sounds'}
-              aria-label="Toggle sound"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold tracking-tight transition-all ${
+                soundEnabled
+                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/60 dark:border-indigo-800 dark:text-indigo-300'
+                  : 'bg-slate-100 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+              }`}
+              title={soundEnabled ? 'Mechanical Keyboard Sound: Active (Click to Mute)' : 'Mechanical Keyboard Sound: Muted (Click to Enable)'}
+              aria-label="Toggle keyboard sound effect"
             >
-              {soundOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+              {soundEnabled ? (
+                <>
+                  <Volume2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span>Sound: On</span>
+                </>
+              ) : (
+                <>
+                  <VolumeX className="w-4 h-4 text-slate-400" />
+                  <span>Sound: Off</span>
+                </>
+              )}
             </button>
 
             {isStarted && !isFinished && (
@@ -258,7 +324,7 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
         {/* Live Metrics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
           <div className="flex flex-col">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Live Speed</span>
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Speed</span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="text-2xl md:text-3xl font-extrabold text-indigo-600 dark:text-indigo-400 tabular-nums font-mono tracking-tight">
                 {liveWpm}
@@ -306,8 +372,8 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
         </div>
       </div>
 
-      {/* Main Interactive Typing Area */}
-      <div className="relative bg-white dark:bg-slate-900 border-2 border-indigo-100 dark:border-slate-800 rounded-2xl p-6 md:p-8 shadow-md cursor-text min-h-[180px] flex flex-col justify-center">
+      {/* Main Interactive Typing Area with Pixel-Perfect Reference Image Styling */}
+      <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 md:p-8 shadow-xs cursor-text min-h-[220px] flex flex-col justify-center overflow-hidden">
         {isPaused && (
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs rounded-2xl flex flex-col items-center justify-center z-20 text-white gap-3">
             <p className="text-lg font-bold">Exercise Paused</p>
@@ -320,58 +386,73 @@ export const TypingArena: React.FC<TypingArenaProps> = ({
           </div>
         )}
 
-        <div className="text-lg md:text-2xl font-mono leading-[1.8] select-none max-h-56 overflow-y-auto pr-2 whitespace-pre-wrap break-words tracking-normal">
-          {targetText.split('').map((char, index) => {
-            const isTyped = index < typedChars.length;
-            const isCurrent = index === currentIndex;
-            const userChar = typedChars[index];
-            const isCorrect = userChar === char;
-            const isSpace = char === ' ';
+        {/* Fixed Ruled Lines: No word or letter ever breaks or jumps down while typing */}
+        <div className="w-full flex flex-col font-mono text-lg sm:text-xl md:text-[1.32rem] lg:text-[1.38rem] select-none max-h-[380px] overflow-y-auto pr-3 cursor-text">
+          {staticLines.map(line => (
+            <div
+              key={line.lineIndex}
+              className="w-full flex items-center min-h-[52px] border-b border-slate-200 dark:border-slate-800 tracking-[0.14em]"
+            >
+              {line.chars.map(token => {
+                const { char, globalIndex } = token;
+                const isTyped = globalIndex < typedChars.length;
+                const isCurrent = globalIndex === currentIndex;
+                const userChar = typedChars[globalIndex];
+                const isCorrect = userChar === char;
+                const isSpace = char === ' ' || char === '\n';
 
-            let charClass = 'text-slate-400 dark:text-slate-500';
-            if (isTyped) {
-              if (isCorrect) {
-                charClass = 'text-emerald-600 dark:text-emerald-400 font-medium';
-              } else {
-                charClass = 'bg-rose-500/25 text-rose-600 dark:text-rose-400 underline decoration-rose-500 decoration-2 font-medium';
-              }
-            }
+                let tokenClass = 'char-pending';
+                if (isTyped) {
+                  tokenClass = isCorrect ? 'char-correct' : 'char-error';
+                } else if (isCurrent) {
+                  tokenClass = 'char-current';
+                }
 
-            // Visible display for active cursor or mistyped space
-            let displayChar: React.ReactNode = char;
-            if (isSpace) {
-              if (isCurrent) {
-                displayChar = <span className="inline-block w-[1ch] text-center font-bold text-indigo-600 dark:text-indigo-400">␣</span>;
-              } else if (isTyped && !isCorrect) {
-                displayChar = <span className="inline-block min-w-[1ch] text-rose-600 underline font-bold">{userChar || '␣'}</span>;
-              } else {
-                displayChar = ' ';
-              }
-            } else if (isTyped && !isCorrect && userChar === ' ') {
-              displayChar = <span className="underline decoration-rose-500">{char}</span>;
-            }
+                if (isSpace) {
+                  if (isCurrent) {
+                    return (
+                      <span
+                        key={globalIndex}
+                        ref={activeCharSpanRef}
+                        className="inline-block w-[1ch] text-center char-current"
+                      >
+                        &nbsp;
+                      </span>
+                    );
+                  }
+                  if (isTyped && !isCorrect) {
+                    return (
+                      <span
+                        key={globalIndex}
+                        className="inline-block w-[1ch] text-center char-error font-bold"
+                      >
+                        {userChar === ' ' ? '␣' : userChar}
+                      </span>
+                    );
+                  }
+                  return (
+                    <span key={globalIndex} className="inline-block w-[1ch] text-center">
+                      &nbsp;
+                    </span>
+                  );
+                }
 
-            return (
-              <span
-                key={index}
-                ref={isCurrent ? activeCharSpanRef : null}
-                className={`relative inline transition-colors duration-75 ${charClass} ${
-                  isCurrent
-                    ? 'bg-indigo-100 dark:bg-indigo-950/80 text-indigo-950 dark:text-white rounded-xs ring-2 ring-indigo-500 font-semibold'
-                    : ''
-                }`}
-              >
-                {displayChar}
-                {isCurrent && (
-                  <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400 animate-pulse" />
-                )}
-              </span>
-            );
-          })}
+                return (
+                  <span
+                    key={globalIndex}
+                    ref={isCurrent ? activeCharSpanRef : null}
+                    className={`inline-block w-[1ch] text-center transition-colors duration-75 ${tokenClass}`}
+                  >
+                    {isTyped && !isCorrect && userChar ? userChar : char}
+                  </span>
+                );
+              })}
+            </div>
+          ))}
         </div>
 
         {!isStarted && (
-          <div className="mt-4 text-center text-xs md:text-sm font-medium text-slate-400 dark:text-slate-500 animate-pulse tracking-tight">
+          <div className="mt-4 text-center text-xs md:text-sm font-medium text-slate-400 dark:text-slate-500 tracking-tight">
             Click here or press any key to start typing...
           </div>
         )}
